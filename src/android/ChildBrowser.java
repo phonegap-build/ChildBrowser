@@ -37,13 +37,13 @@ import android.widget.LinearLayout;
 
 import org.apache.cordova.api.*;
 
-public class ChildBrowser extends Plugin {
+public class ChildBrowser extends CordovaPlugin {
 
     protected static final String LOG_TAG = "ChildBrowser";
     private static int CLOSE_EVENT = 0;
     private static int LOCATION_CHANGED_EVENT = 1;
-
-    private String browserCallbackId = null;
+    
+    public CallbackContext callbackContext;
 
     private Dialog dialog;
     private WebView webview;
@@ -57,31 +57,36 @@ public class ChildBrowser extends Plugin {
      *
      * @param action        The action to execute.
      * @param args          JSONArry of arguments for the plugin.
-     * @param callbackId    The callback id used when calling back into JavaScript.
-     * @return              A PluginResult object with a status and message.
+     * @param callbackContext   The callback context used when calling back into JavaScript.
+     * @return              True if the action was valid, false if not.
+     * 
      */
-    public PluginResult execute(String action, JSONArray args, String callbackId) {
+    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
         PluginResult.Status status = PluginResult.Status.OK;
         String result = "";
+    	
+    	this.callbackContext = callbackContext;
 
         try {
             if (action.equals("showWebPage")) {
-                this.browserCallbackId = callbackId;
 
                 // If the ChildBrowser is already open then throw an error
                 if (dialog != null && dialog.isShowing()) {
-                    return new PluginResult(PluginResult.Status.ERROR, "ChildBrowser is already open");
+                	callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, "ChildBrowser is already open"));
+                	return false;
                 }
 
                 result = this.showWebPage(args.getString(0), args.optJSONObject(1));
 
                 if (result.length() > 0) {
                     status = PluginResult.Status.ERROR;
-                    return new PluginResult(status, result);
+                    callbackContext.sendPluginResult(new PluginResult(status, result));
+                    return false;
                 } else {
                     PluginResult pluginResult = new PluginResult(status, result);
                     pluginResult.setKeepCallback(true);
-                    return pluginResult;
+                    callbackContext.sendPluginResult(pluginResult);
+                    return true;
                 }
             } else if (action.equals("close")) {
                 closeDialog();
@@ -91,7 +96,8 @@ public class ChildBrowser extends Plugin {
 
                 PluginResult pluginResult = new PluginResult(status, obj);
                 pluginResult.setKeepCallback(false);
-                return pluginResult;
+                callbackContext.sendPluginResult(pluginResult);
+                return true;
             } else if (action.equals("openExternal")) {
                 result = this.openExternal(args.getString(0), args.optBoolean(1));
                 if (result.length() > 0) {
@@ -100,9 +106,11 @@ public class ChildBrowser extends Plugin {
             } else {
                 status = PluginResult.Status.INVALID_ACTION;
             }
-            return new PluginResult(status, result);
+            callbackContext.sendPluginResult(new PluginResult(status, result));
+            return false;
         } catch (JSONException e) {
-            return new PluginResult(PluginResult.Status.JSON_EXCEPTION);
+            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.JSON_EXCEPTION));
+            return false;
         }
     }
 
@@ -209,7 +217,8 @@ public class ChildBrowser extends Plugin {
         // Create dialog in new thread
         Runnable runnable = new Runnable() {
             public void run() {
-                dialog = new Dialog((Context) cordova.getActivity());
+                dialog = new Dialog((Context) cordova.getActivity(), android.R.style.Theme_NoTitleBar);
+                dialog.getWindow().getAttributes().windowAnimations = android.R.style.Animation_Dialog;
 
                 dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
                 dialog.setCancelable(true);
@@ -230,12 +239,12 @@ public class ChildBrowser extends Plugin {
                 LinearLayout.LayoutParams forwardParams = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
                 LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, 1.0f);
                 LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-                LinearLayout.LayoutParams wvParams = new LinearLayout.LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT);
+                LinearLayout.LayoutParams wvParams = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
                 if (!showAddress) // larger buttons if address bar is not visible
                 {
-                    backParams = new LinearLayout.LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.WRAP_CONTENT, 1.0f);
-                    forwardParams = new LinearLayout.LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.WRAP_CONTENT, 1.0f);
-                    closeParams = new LinearLayout.LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.WRAP_CONTENT, 1.0f);
+                    backParams = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, 1.0f);
+                    forwardParams = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, 1.0f);
+                    closeParams = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, 1.0f);
                 }
 
                 LinearLayout main = new LinearLayout((Context) cordova.getActivity());
@@ -305,7 +314,7 @@ public class ChildBrowser extends Plugin {
                 webview = new WebView((Context) cordova.getActivity());
                 webview.getSettings().setJavaScriptEnabled(true);
                 webview.getSettings().setBuiltInZoomControls(true);
-                WebViewClient client = new ChildBrowserClient(ctx, edittext);
+                WebViewClient client = new ChildBrowserClient(cordova, edittext);
                 webview.setWebViewClient(client);
                 webview.loadUrl(url);
                 webview.setId(5);
@@ -327,8 +336,8 @@ public class ChildBrowser extends Plugin {
 
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
                 lp.copyFrom(dialog.getWindow().getAttributes());
-                lp.width = WindowManager.LayoutParams.FILL_PARENT;
-                lp.height = WindowManager.LayoutParams.FILL_PARENT;
+                lp.width = WindowManager.LayoutParams.MATCH_PARENT;
+                lp.height = WindowManager.LayoutParams.MATCH_PARENT;
 
                 dialog.setContentView(main);
                 dialog.show();
@@ -359,10 +368,10 @@ public class ChildBrowser extends Plugin {
      * @param obj a JSONObject contain event payload information
      */
     private void sendUpdate(JSONObject obj, boolean keepCallback) {
-        if (this.browserCallbackId != null) {
+        if (this.callbackContext != null) {
             PluginResult result = new PluginResult(PluginResult.Status.OK, obj);
             result.setKeepCallback(keepCallback);
-            this.success(result, this.browserCallbackId);
+            this.callbackContext.sendPluginResult(result);
         }
     }
 
