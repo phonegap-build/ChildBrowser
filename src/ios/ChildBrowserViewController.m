@@ -176,9 +176,14 @@
 		self.imageURL = url;
 		self.isImage = YES;
 		NSString* htmlText = @"<html><body style='background-color:#333;margin:0px;padding:0px;'><img style='min-height:200px;margin:0px;padding:0px;width:100%;height:auto;' alt='' src='IMGSRC'/></body></html>";
-		htmlText = [ htmlText stringByReplacingOccurrencesOfString:@"IMGSRC" withString:url ];
-
-		[webView loadHTMLString:htmlText baseURL:[NSURL URLWithString:@""]];
+		
+		NSString* encodedUrl = [url stringByReplacingOccurrencesOfString:@"'" withString:@"&#39;"];
+        	encodedUrl = [encodedUrl stringByReplacingOccurrencesOfString:@"\"" withString:@"&quot;"];
+        	encodedUrl = [encodedUrl stringByReplacingOccurrencesOfString:@"<" withString:@"&lt;"];
+        	encodedUrl = [encodedUrl stringByReplacingOccurrencesOfString:@">" withString:@"&gt;"];
+		htmlText = [ htmlText stringByReplacingOccurrencesOfString:@"IMGSRC" withString:encodedUrl];
+        
+		[webView loadHTMLString:htmlText baseURL:[NSURL URLWithString:@"about:blank"]];
 		
 	}
 	else
